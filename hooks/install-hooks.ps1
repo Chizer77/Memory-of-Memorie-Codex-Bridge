@@ -29,6 +29,51 @@ function Write-Utf8File {
     [IO.File]::WriteAllText($Path, $Content, (New-Object Text.UTF8Encoding($false)))
 }
 
+function ConvertTo-ReadableJson {
+    param([object]$Value)
+
+    $compactJson = $Value | ConvertTo-Json -Depth 64 -Compress
+    $builder = New-Object Text.StringBuilder
+    $indentLevel = 0
+    $insideString = $false
+    $escaped = $false
+
+    foreach ($character in $compactJson.ToCharArray()) {
+        if ($insideString) {
+            [void]$builder.Append($character)
+            if ($escaped) { $escaped = $false }
+            elseif ($character -eq '\') { $escaped = $true }
+            elseif ($character -eq '"') { $insideString = $false }
+            continue
+        }
+
+        if ($character -eq '"') {
+            $insideString = $true
+            [void]$builder.Append($character)
+        } elseif ($character -eq '{' -or $character -eq '[') {
+            [void]$builder.Append($character)
+            [void]$builder.AppendLine()
+            $indentLevel++
+            [void]$builder.Append(('  ' * $indentLevel))
+        } elseif ($character -eq '}' -or $character -eq ']') {
+            [void]$builder.AppendLine()
+            $indentLevel--
+            [void]$builder.Append(('  ' * $indentLevel))
+            [void]$builder.Append($character)
+        } elseif ($character -eq ',') {
+            [void]$builder.Append($character)
+            [void]$builder.AppendLine()
+            [void]$builder.Append(('  ' * $indentLevel))
+        } elseif ($character -eq ':') {
+            [void]$builder.Append(': ')
+        } elseif (![char]::IsWhiteSpace($character)) {
+            [void]$builder.Append($character)
+        }
+    }
+
+    return $builder.ToString()
+}
+
 function Get-Property {
     param([object]$Object, [string]$Name)
 
@@ -78,8 +123,16 @@ function Save-Config {
     param([string]$Path, [object]$Config)
 
     $backup = Backup-File $Path
-    Write-Utf8File $Path (($Config | ConvertTo-Json -Depth 64) + [Environment]::NewLine)
+    Write-Utf8File $Path ((ConvertTo-ReadableJson $Config) + [Environment]::NewLine)
     if ($backup) { Write-Host "Backup: $backup" }
+}
+
+function Test-ConfigNeedsFormatting {
+    param([string]$Path, [object]$Config)
+
+    if (!(Test-Path -LiteralPath $Path)) { return $false }
+    $current = (Get-Content -LiteralPath $Path -Raw -Encoding UTF8).TrimEnd()
+    return $current -ne (ConvertTo-ReadableJson $Config)
 }
 
 function Copy-BridgeRuntime {
@@ -140,7 +193,7 @@ function Install-Codex {
     $changed = $false
     Add-CodexHook $config.hooks 'UserPromptSubmit' (@($template.hooks.UserPromptSubmit)[0]) ([ref]$changed)
     Add-CodexHook $config.hooks 'Stop' (@($template.hooks.Stop)[0]) ([ref]$changed)
-    if ($changed) { Save-Config $configPath $config }
+    if ($changed -or (Test-ConfigNeedsFormatting $configPath $config)) { Save-Config $configPath $config }
     return $bridge
 }
 
@@ -155,7 +208,7 @@ function Install-Claude {
     $changed = $false
     Add-ClaudeHook $config.hooks 'UserPromptSubmit' (@($template.hooks.UserPromptSubmit)[0]) ([ref]$changed)
     Add-ClaudeHook $config.hooks 'Stop' (@($template.hooks.Stop)[0]) ([ref]$changed)
-    if ($changed) { Save-Config $configPath $config }
+    if ($changed -or (Test-ConfigNeedsFormatting $configPath $config)) { Save-Config $configPath $config }
     return $bridge
 }
 
