@@ -6,11 +6,11 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-0078d4)](https://learn.microsoft.com/windows/)
 [![License](https://img.shields.io/badge/License-GPL--3.0--or--later-blue.svg)](LICENSE)
 
-**Memory of Memorie Codex Bridge** is a Codex desktop plugin for *Memory of Memorie*. It provides a local HTTP bridge, native Pomodoro controls, wallpaper mode, and optional activity hooks for Codex, Claude Code, and OpenCode.
+**Memory of Memorie Codex Bridge** is a Codex desktop plugin for [*Memory of Memorie*](https://store.steampowered.com/app/4337440/). It provides a local HTTP bridge, native Pomodoro controls, wallpaper mode, and optional activity hooks for Codex, Claude Code, and OpenCode.
 
 Pomodoro commands use the game's own UI button flow, keeping start, stop, animation, and settlement aligned with the game.
 
-> [中文说明](README.zh-CN.md) | [Plugin reference](docs/plugin-reference.md) | [Hooks guide](hooks/README.md)
+> [中文说明](README.zh-CN.md) | [Plugin Reference](docs/plugin-reference.md) | [Hooks Guide](hooks/README.md)
 
 ## Features
 
