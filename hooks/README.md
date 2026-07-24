@@ -1,30 +1,34 @@
-# Memory of Memorie Activity Bridge
+# Memory of Memorie Activity Hooks
 
-本工具把 Codex、Claude Code 或 OpenCode 的工作状态同步到游戏番茄钟：开始处理任务时启动番茄钟，任务完成后停止。游戏必须已安装并运行 `Memory of Memorie Codex Bridge` 插件。
+This optional integration synchronizes Codex, Claude Code, or OpenCode activity with the in-game Pomodoro timer. When a supported coding tool begins work, it starts a Pomodoro session; when work completes, it stops the session.
 
-## 安装
+The game must be running with the **Memory of Memorie Codex Bridge** plugin installed and its local HTTP API available.
 
-在本项目根目录打开 PowerShell，执行：
+> [中文说明](README.zh-CN.md) | [Main project README](../README.md)
+
+## Install
+
+Open PowerShell in the project root or extracted Release directory and run:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\hooks\install-hooks.ps1
 ```
 
-安装器会自动检测已安装的 Codex、Claude Code 和 OpenCode，并在终端显示编号。输入平台编号安装到单个平台，输入 `A` 安装到全部已检测的平台。完成后会显示每个平台的实际安装目录，按 Enter 关闭。
+The installer detects installed Codex, Claude Code, and OpenCode configurations. Enter a platform number to install one integration, or enter `A` to install every detected platform.
 
-安装不会覆盖你已有的 hooks。它只会追加本插件需要的开始和结束事件；再次运行安装器也不会重复添加。
+The installer preserves existing user hooks. It appends this bridge's start and stop entries without overwriting unrelated hook definitions, and it does not add duplicate entries when run again. It displays every installed location and waits for Enter before closing.
 
-安装完成后，重启对应的编码工具或开始一个新会话，使新 hook 生效。
+Restart the selected coding tool or start a new session after installation.
 
-## 配置
+## Configure
 
-每个平台都会有独立的配置文件：
+Each selected platform receives an independent configuration file:
 
 ```text
-<平台配置目录>/scripts/memory-of-memorie-bridge/settings.json
+<platform configuration directory>/scripts/memory-of-memorie-bridge/settings.json
 ```
 
-编辑其中两项：
+Edit the bridge URL and default work duration:
 
 ```json
 {
@@ -33,28 +37,34 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\hooks\install-hooks.ps1
 }
 ```
 
-- `gameApiUrl`：游戏插件的 HTTP 地址。
-- `workMinutes`：每次任务开始时设置的番茄钟分钟数。
+| Setting | Description |
+| --- | --- |
+| `gameApiUrl` | The game plugin's HTTP address. It must match `Http.ListenUrl` in the game plugin configuration, without the trailing slash requirement. |
+| `workMinutes` | The Pomodoro work duration set before each activity-triggered session. |
 
-如果你在游戏插件的 BepInEx 配置中修改了 `ListenUrl`，这里的 `gameApiUrl` 必须改成相同地址。保存后，下次任务自动使用新值，无需重新安装 hooks。
+Saving this file takes effect on the next activity event; reinstalling hooks is unnecessary.
 
-## 默认位置
+## Default Locations
 
-- Codex：`%USERPROFILE%\.codex`
-- Claude Code：`%USERPROFILE%\.claude`
-- OpenCode：`%USERPROFILE%\.config\opencode`
+| Platform | Configuration directory |
+| --- | --- |
+| Codex | `%USERPROFILE%\.codex` |
+| Claude Code | `%USERPROFILE%\.claude` |
+| OpenCode | `%USERPROFILE%\.config\opencode` |
 
-## 手动安装
+## Manual Installation
 
-若不使用安装器，将 `scripts/memory-of-memorie-bridge` 整个文件夹复制到目标平台的 `scripts` 目录。然后合并对应平台模板中的 hooks：
+Copy the entire `scripts/memory-of-memorie-bridge` folder into the target platform's `scripts` directory. Then merge the matching platform integration:
 
-- Codex：`platforms/codex/hooks.json`
-- Claude Code：`platforms/claude/settings.json`
-- OpenCode：将 `platforms/opencode/plugins/memory-of-memorie-activity-bridge.ts` 复制到 OpenCode 的 `plugins` 目录
+| Platform | Source integration |
+| --- | --- |
+| Codex | `platforms/codex/hooks.json` |
+| Claude Code | `platforms/claude/settings.json` |
+| OpenCode | Copy `platforms/opencode/plugins/memory-of-memorie-activity-bridge.ts` into the OpenCode `plugins` directory. |
 
-Codex 和 Claude Code 模板里的 `__BRIDGE_ROOT__` 替换为复制后 `memory-of-memorie-bridge` 文件夹的完整路径。
+For Codex and Claude Code, replace `__BRIDGE_ROOT__` in the template with the full path to the copied `memory-of-memorie-bridge` folder. Merge hook entries rather than replacing existing configuration.
 
-## 注意
+## Notes
 
-- 游戏未启动或游戏插件不可用时，编码工具不会被阻塞；本次同步会被跳过。
-- 默认仅访问本机 `127.0.0.1`。不要把游戏 API 暴露到公网。
+- If the game is not running or its HTTP API is unavailable, the coding tool is not blocked; the activity sync is skipped.
+- The default API address uses `127.0.0.1`. Do not expose the unauthenticated game-control API to the public internet.
