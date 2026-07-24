@@ -3,7 +3,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>MemoryOfMemorieCodexBridge</AssemblyName>
     <RootNamespace>MemoryOfMemorieCodexBridge</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -12,20 +12,15 @@
   <PropertyGroup>
     <MemoryOfMemorieBepInExDirectory Condition="'$(MemoryOfMemorieBepInExDirectory)' == ''">$(MEMORY_OF_MEMORIE_BEPINEX_DIR)</MemoryOfMemorieBepInExDirectory>
     <BepInExCoreDirectory>$(MemoryOfMemorieBepInExDirectory)\core</BepInExCoreDirectory>
-    <GameInteropDirectory>$(MemoryOfMemorieBepInExDirectory)\interop</GameInteropDirectory>
+    <BuildReferencesDirectory>$(MSBuildThisFileDirectory).github\build-references\unity-6000.3.6</BuildReferencesDirectory>
   </PropertyGroup>
 
-  <Target Name="ValidateLocalReferences" BeforeTargets="ResolveReferences">
-    <Error Condition="'$(MemoryOfMemorieBepInExDirectory)' == ''" Text="Set MEMORY_OF_MEMORIE_BEPINEX_DIR to the game's BepInEx directory before building." />
+  <Target Name="ValidateBuildReferences" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(MemoryOfMemorieBepInExDirectory)' == ''" Text="Set MEMORY_OF_MEMORIE_BEPINEX_DIR or MemoryOfMemorieBepInExDirectory to a compatible BepInEx runtime before building." />
     <Error Condition="!Exists('$(BepInExCoreDirectory)\BepInEx.Core.dll')" Text="BepInEx core DLLs were not found under $(BepInExCoreDirectory)." />
-    <Error Condition="!Exists('$(GameInteropDirectory)\Il2Cppmscorlib.dll')" Text="Game IL2CPP interop DLLs were not found under $(GameInteropDirectory). Run the game once with BepInEx before building." />
+    <Error Condition="!Exists('$(BuildReferencesDirectory)\Il2Cppmscorlib.dll')" Text="Build reference Il2Cppmscorlib.dll was not found under $(BuildReferencesDirectory)." />
+    <Error Condition="!Exists('$(BuildReferencesDirectory)\UnityEngine.CoreModule.dll')" Text="Build reference UnityEngine.CoreModule.dll was not found under $(BuildReferencesDirectory)." />
   </Target>
-
-  <ItemGroup>
-    <Compile Remove=".trash\**\*.cs;outputs\**\*.cs;src\**\*.cs" />
-    <EmbeddedResource Remove=".trash\**;outputs\**;src\**" />
-    <None Remove=".trash\**;outputs\**;src\**" />
-  </ItemGroup>
 
   <ItemGroup>
     <Reference Include="BepInEx.Core">
@@ -45,11 +40,11 @@
       <Private>false</Private>
     </Reference>
     <Reference Include="Il2Cppmscorlib">
-      <HintPath>$(GameInteropDirectory)\Il2Cppmscorlib.dll</HintPath>
+      <HintPath>$(BuildReferencesDirectory)\Il2Cppmscorlib.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>$(GameInteropDirectory)\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(BuildReferencesDirectory)\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
   </ItemGroup>

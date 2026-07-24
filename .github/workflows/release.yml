@@ -1,0 +1,56 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag to create, for example v0.2.1
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+      BEPINEX_VERSION: 6.0.0-be.785
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Download BepInEx runtime
+        shell: pwsh
+        run: |
+          $bepInExArchive = Join-Path $env:RUNNER_TEMP 'BepInEx-Unity.IL2CPP-win-x64-be.785.zip'
+          $bepInExRuntime = Join-Path $env:RUNNER_TEMP 'bepinex-runtime'
+          Invoke-WebRequest -Uri 'https://builds.bepinex.dev/projects/bepinex_be/785/BepInEx-Unity.IL2CPP-win-x64-6.0.0-be.785%2B6abdba4.zip' -OutFile $bepInExArchive
+          Expand-Archive -LiteralPath $bepInExArchive -DestinationPath $bepInExRuntime
+          "BEPINEX_ARCHIVE=$bepInExArchive" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "BEPINEX_RUNTIME=$bepInExRuntime\BepInEx" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Build plugin
+        shell: pwsh
+        run: dotnet build -c Release -p:MemoryOfMemorieBepInExDirectory="$env:BEPINEX_RUNTIME"
+
+      - name: Create release archive
+        shell: pwsh
+        run: .\.github\scripts\New-ReleasePackage.ps1 -Version $env:RELEASE_TAG -BepInExArchive $env:BEPINEX_ARCHIVE -BepInExVersion $env:BEPINEX_VERSION
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          generate_release_notes: true
+          files: outputs/release-artifacts/*.zip
