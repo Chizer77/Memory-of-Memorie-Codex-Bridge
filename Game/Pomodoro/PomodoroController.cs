@@ -7,7 +7,8 @@ namespace MemoryOfMemorieCodexBridge.Game.Pomodoro;
 internal sealed class PomodoroController
 {
     private const string PomodoroTimerViewTypeName = "App.UI.PomodoroTimer.PomodoroTimerView";
-    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(5);
+    // 主场景 UI 在首帧后仍可能继续初始化，给首次 Hook 足够的原生界面就绪时间。
+    private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(10);
     private readonly UnityMainThreadQueue mainThreadQueue;
     private readonly GameUiVisibilityController gameUi;
     private readonly ManualLogSource log;
@@ -31,6 +32,18 @@ internal sealed class PomodoroController
             return PomodoroCommandResult.Failed(commandId, $"{commandId} requires a positive minutes value.");
         }
 
+        if (commandId is "pomodoro.set-work-minutes" or "pomodoro.ui-start" or "pomodoro.ui-stop")
+        {
+            // 设置与启动属于同一工作流，设置后保持 UI 可见，避免两次请求之间发生闪隐。
+            var uiVisible = gameUi.ShowForInteraction(commandId == "pomodoro.set-work-minutes" ? CommandTimeout : null);
+            var visibilityCompleted = await Task.WhenAny(uiVisible, Task.Delay(CommandTimeout));
+            if (visibilityCompleted != uiVisible)
+            {
+                return PomodoroCommandResult.Failed(commandId, "Game UI did not become ready before the command timeout.");
+            }
+            await Task.Delay(GameUiVisibilityController.InteractionRevealDelay);
+        }
+
         var operation = mainThreadQueue.Enqueue(() => ExecuteOnUnityThread(commandId, minutes));
         var completed = await Task.WhenAny(operation, Task.Delay(CommandTimeout));
         if (completed != operation)
@@ -38,12 +51,7 @@ internal sealed class PomodoroController
             return PomodoroCommandResult.Failed(commandId, "Command timed out before Unity main-thread execution completed.");
         }
 
-        var result = await operation;
-        if (result.Success && commandId is "pomodoro.ui-start" or "pomodoro.ui-stop")
-        {
-            gameUi.ShowForTransientEvent();
-        }
-        return result;
+        return await operation;
     }
 
     internal async Task<PomodoroStatusSnapshot> CaptureStatusAsync()

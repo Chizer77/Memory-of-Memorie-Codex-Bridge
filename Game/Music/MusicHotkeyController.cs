@@ -30,8 +30,8 @@ internal sealed class MusicHotkeyController
         if (isPressed && !toggleWasPressed && !toggleAfter.HasValue)
         {
             // 隐藏状态的按钮不可交互，先恢复游戏 UI 再走原生按钮流程。
-            gameUi.ShowForTransientEvent();
-            toggleAfter = DateTime.UtcNow.AddMilliseconds(150);
+            _ = gameUi.ShowForInteraction();
+            toggleAfter = DateTime.UtcNow.Add(GameUiVisibilityController.InteractionRevealDelay);
         }
 
         toggleWasPressed = isPressed;

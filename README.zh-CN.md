@@ -76,7 +76,7 @@
 | `CompensateRemovedWindowFrame` | 壁纸模式移除窗口框后，补足原标题栏与边框区域。 |
 | `ExtraOverscanPixels` | 额外覆盖 `0` 到 `400` 像素，用于消除剩余渲染空隙。 |
 | `HideGameUi` | 壁纸模式下隐藏主 UI。 |
-| `TimerEventUiSeconds` | 番茄钟或音乐操作后显示 UI 的秒数，范围 `0` 到 `60`。 |
+| `TimerEventUiSeconds` | 番茄钟或音乐操作后显示 UI 的秒数，范围 `0` 到 `60`；`0` 时仍保留 200ms 的交互保底。 |
 | `AutoSetWallpaper` | 启动游戏时自动进入壁纸模式。 |
 | `ToggleWallpaperHotkey` | 普通窗口和壁纸模式之间切换。默认 `Ctrl+F12`。 |
 | `AutoReturnSeconds` | 离开壁纸模式后自动返回的秒数；`0` 为不自动返回。 |

@@ -76,7 +76,7 @@ If you already use BepInEx with custom settings, copy only `BepInEx/plugins/Memo
 | `CompensateRemovedWindowFrame` | Expand the hosted window to cover the title-bar area removed in wallpaper mode. |
 | `ExtraOverscanPixels` | Add `0` to `400` pixels of extra coverage for games with remaining render gaps. |
 | `HideGameUi` | Hide the main UI while wallpapered. |
-| `TimerEventUiSeconds` | Show UI for `0` to `60` seconds after a Pomodoro or music action. |
+| `TimerEventUiSeconds` | Show UI for `0` to `60` seconds after a Pomodoro or music action. `0` uses a 200ms interaction-safe minimum. |
 | `AutoSetWallpaper` | Attach to the desktop automatically at startup. |
 | `ToggleWallpaperHotkey` | Switch between normal window and wallpaper mode. Default: `Ctrl+F12`. |
 | `AutoReturnSeconds` | Reattach automatically after leaving wallpaper mode. `0` disables automatic return. |

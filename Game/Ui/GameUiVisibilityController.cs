@@ -6,6 +6,7 @@ namespace MemoryOfMemorieCodexBridge.Game.Ui;
 internal sealed class GameUiVisibilityController
 {
     private const string MainSceneViewTypeName = "App.Main.View.MainSceneView";
+    internal static readonly TimeSpan InteractionRevealDelay = TimeSpan.FromMilliseconds(150);
     private readonly object stateGate = new();
     private readonly ManualLogSource log;
     private readonly bool enabled;
@@ -17,6 +18,7 @@ internal sealed class GameUiVisibilityController
     private DateTime? hideAfter;
     private DateTime? initialWallpaperHideAfter;
     private DateTime nextApplyAttempt = DateTime.MinValue;
+    private TaskCompletionSource<bool> pendingInteractionVisibility;
 
     internal GameUiVisibilityController(bool enabled, int timerEventUiSeconds, ManualLogSource log)
     {
@@ -51,15 +53,28 @@ internal sealed class GameUiVisibilityController
         }
     }
 
-    internal void ShowForTransientEvent()
+    internal Task ShowForInteraction(TimeSpan? minimumVisibleDuration = null)
     {
-        if (!enabled || timerEventDuration <= TimeSpan.Zero) return;
+        if (!enabled) return Task.CompletedTask;
         lock (stateGate)
         {
-            if (!wallpaperMode) return;
+            if (!wallpaperMode) return Task.CompletedTask;
+
+            // 启动宽限期内游戏 UI 尚未被隐藏，避免首次 Hook 为重复的显示动画等待而超时。
+            var uiIsStillVisibleFromStartup = initialWallpaperHideAfter.HasValue;
             desiredVisible = true;
-            hideAfter = DateTime.UtcNow.Add(timerEventDuration);
+            var visibleDuration = minimumVisibleDuration.GetValueOrDefault();
+            if (visibleDuration < GetInteractionVisibilityDuration()) visibleDuration = GetInteractionVisibilityDuration();
+            hideAfter = DateTime.UtcNow.Add(visibleDuration);
             initialWallpaperHideAfter = null;
+            if (uiIsStillVisibleFromStartup)
+            {
+                hasAppliedVisibility = true;
+                appliedVisible = true;
+                return Task.CompletedTask;
+            }
+            pendingInteractionVisibility ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            return pendingInteractionVisibility.Task;
         }
     }
 
@@ -68,6 +83,7 @@ internal sealed class GameUiVisibilityController
         if (!enabled) return;
 
         bool visible;
+        bool requiresApply;
         var initialHideIsDue = false;
         lock (stateGate)
         {
@@ -84,9 +100,12 @@ internal sealed class GameUiVisibilityController
                 hideAfter = null;
             }
             visible = desiredVisible;
+            requiresApply = initialHideIsDue
+                || !hasAppliedVisibility
+                || appliedVisible != visible
+                || (visible && pendingInteractionVisibility is not null);
         }
 
-        var requiresApply = initialHideIsDue || !hasAppliedVisibility || appliedVisible != visible;
         if (!requiresApply) return;
         if (DateTime.UtcNow < nextApplyAttempt) return;
 
@@ -106,8 +125,18 @@ internal sealed class GameUiVisibilityController
             return;
         }
 
-        appliedVisible = visible;
-        hasAppliedVisibility = true;
+        TaskCompletionSource<bool> interactionVisibility = null;
+        lock (stateGate)
+        {
+            appliedVisible = visible;
+            hasAppliedVisibility = true;
+            if (visible && pendingInteractionVisibility is not null)
+            {
+                interactionVisibility = pendingInteractionVisibility;
+                pendingInteractionVisibility = null;
+            }
+        }
+        interactionVisibility?.TrySetResult(true);
         log.LogInfo($"Game UI {(visible ? "shown" : "hidden")} for wallpaper mode.");
     }
 
@@ -122,6 +151,11 @@ internal sealed class GameUiVisibilityController
         method.Invoke(target, new object[] { false });
         return true;
     }
+
+    // 隐藏 UI 时原生按钮不可交互，0 秒配置也必须留下最短操作窗口。
+    private TimeSpan GetInteractionVisibilityDuration() => timerEventDuration > TimeSpan.Zero
+        ? timerEventDuration
+        : TimeSpan.FromMilliseconds(200);
 
     private static bool TryFindMainSceneView(out Type type, out object typedTarget)
     {

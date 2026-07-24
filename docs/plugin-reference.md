@@ -41,7 +41,7 @@ The repository also includes the same template as `config.example.json`.
 - Set `Wallpaper.Enabled` to `false` to disable wallpaper integration entirely.
 - `CompensateRemovedWindowFrame` measures the original title bar and borders, then expands the hosted game window to cover the area they previously occupied.
 - Use `ExtraOverscanPixels` from `0` to `400` only when a game keeps additional render padding after its frame is removed.
-- Set `HideGameUi` to `true` to hide the main game UI while the window is wallpapered. `TimerEventUiSeconds` controls how long the UI appears after a Pomodoro or music command before it hides again.
+- Set `HideGameUi` to `true` to hide the main game UI while the window is wallpapered. `TimerEventUiSeconds` controls how long the UI appears after a Pomodoro or music command before it hides again; `0` uses a 200ms interaction-safe minimum.
 - `ToggleWallpaperHotkey` is a configurable global shortcut. Each press switches between the normal game window and desktop wallpaper mode.
 - Set `Wallpaper.AutoSetWallpaper` to `false` to keep the game as a normal window until `ToggleWallpaperHotkey` is pressed.
 - `AutoReturnSeconds` is `0` for no automatic return after leaving wallpaper mode.
