@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"__BRIDGE_ROOT__\\memory-of-memorie-agent-hook.ps1\" -Event start",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"__BRIDGE_ROOT__\\memory-of-memorie-agent-hook.ps1\" -Event stop",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
