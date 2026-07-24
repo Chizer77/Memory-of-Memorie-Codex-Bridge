@@ -1,11 +1,16 @@
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using Il2CppInterop.Runtime.Injection;
 using BepInEx.Logging;
 using MemoryOfMemorieCodexBridge.Api;
-using MemoryOfMemorieCodexBridge.Commands;
+using MemoryOfMemorieCodexBridge.Configuration;
+using MemoryOfMemorieCodexBridge.Game;
+using MemoryOfMemorieCodexBridge.Game.Pomodoro;
+using MemoryOfMemorieCodexBridge.Game.Ui;
+using MemoryOfMemorieCodexBridge.Game.Music;
+using MemoryOfMemorieCodexBridge.Windows;
 using MemoryOfMemorieCodexBridge.Probing;
+using MemoryOfMemorieCodexBridge.Wallpaper;
 
 namespace MemoryOfMemorieCodexBridge;
 
@@ -13,23 +18,54 @@ namespace MemoryOfMemorieCodexBridge;
 public sealed class Plugin : BasePlugin
 {
     private LocalApiServer apiServer;
-    private GameCommandDispatcher commandDispatcher;
+    private PomodoroController pomodoro;
+    private UnityMainThreadQueue unityMainThreadQueue;
+    private MusicHotkeyController musicHotkey;
+    private GameUiVisibilityController uiVisibilityController;
+    private WallpaperService wallpaperService;
 
     public override void Load()
     {
-        var listenUrl = Config.Bind(
-            "Local API",
-            "ListenUrl",
-            "http://127.0.0.1:29461/",
-            "HTTP listener root URL. Keep a loopback address unless you intentionally expose the unauthenticated game control API.");
+        var configuration = BridgeConfigurationStore.LoadOrCreate(Log);
+        if (configuration.Diagnostics.HideConsoleWindow)
+        {
+            ConsoleWindow.HideIfPresent();
+        }
         var probe = new RuntimeProbe();
-        commandDispatcher = new GameCommandDispatcher(Log);
-        ClassInjector.RegisterTypeInIl2Cpp<UnityCommandRunner>();
-        UnityCommandRunner.Configure(commandDispatcher);
-        AddComponent<UnityCommandRunner>();
+        uiVisibilityController = new GameUiVisibilityController(
+            configuration.Wallpaper.HideGameUi,
+            configuration.Wallpaper.TimerEventUiSeconds,
+            Log);
+        unityMainThreadQueue = new UnityMainThreadQueue();
+        pomodoro = new PomodoroController(unityMainThreadQueue, uiVisibilityController, Log);
+        if (configuration.Music.Enabled)
+        {
+            musicHotkey = new MusicHotkeyController(configuration.Music.ToggleHotkey, new MusicController(Log), uiVisibilityController);
+        }
+        ClassInjector.RegisterTypeInIl2Cpp<UnityMainThreadHost>();
+        UnityMainThreadHost.Configure(unityMainThreadQueue, uiVisibilityController, musicHotkey);
+        AddComponent<UnityMainThreadHost>();
 
-        apiServer = new LocalApiServer(probe, commandDispatcher, Log, listenUrl.Value);
-        apiServer.Start();
-        Log.LogInfo($"{PluginInfo.Name} {PluginInfo.Version} loaded with Pomodoro UI bridge commands.");
+        if (configuration.Http.Enabled)
+        {
+            apiServer = new LocalApiServer(probe, pomodoro, Log, configuration.Http.ListenUrl);
+            apiServer.Start();
+        }
+        else
+        {
+            Log.LogInfo("Local HTTP API is disabled by config.json.");
+        }
+
+        if (configuration.Wallpaper.Enabled)
+        {
+            wallpaperService = new WallpaperService(configuration.Wallpaper, Log, uiVisibilityController);
+            wallpaperService.Start();
+        }
+        else
+        {
+            Log.LogInfo("Wallpaper integration is disabled by config.json.");
+        }
+
+        Log.LogInfo($"{PluginInfo.Name} {PluginInfo.Version} loaded with Pomodoro, music, and wallpaper integration.");
     }
 }

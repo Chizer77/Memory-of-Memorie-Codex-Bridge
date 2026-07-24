@@ -1,17 +1,8 @@
-namespace MemoryOfMemorieCodexBridge.Commands;
+namespace MemoryOfMemorieCodexBridge.Game.Pomodoro;
 
-internal sealed class TimerStatusSnapshot
+internal sealed class PomodoroStatusSnapshot
 {
-    internal TimerStatusSnapshot(
-        bool pomodoroFound,
-        string currentState,
-        int workMinutes,
-        int workSec,
-        int workCount,
-        double totalWorkTime,
-        long storedTotalWorkSec,
-        int storedTotalWorkRunCount,
-        string error)
+    internal PomodoroStatusSnapshot(bool pomodoroFound, string currentState, int workMinutes, int workSec, int workCount, double totalWorkTime, long storedTotalWorkSec, int storedTotalWorkRunCount, string error)
     {
         PomodoroFound = pomodoroFound;
         CurrentState = currentState;
@@ -25,20 +16,12 @@ internal sealed class TimerStatusSnapshot
     }
 
     public bool PomodoroFound { get; }
-
     public string CurrentState { get; }
-
     public int WorkMinutes { get; }
-
     public int WorkSec { get; }
-
     public int WorkCount { get; }
-
     public double TotalWorkTime { get; }
-
     public long StoredTotalWorkSec { get; }
-
     public int StoredTotalWorkRunCount { get; }
-
     public string Error { get; }
 }

@@ -2,7 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using BepInEx.Logging;
-using MemoryOfMemorieCodexBridge.Commands;
+using MemoryOfMemorieCodexBridge.Game.Pomodoro;
 using MemoryOfMemorieCodexBridge.Probing;
 
 namespace MemoryOfMemorieCodexBridge.Api;
@@ -12,15 +12,15 @@ internal sealed class LocalApiServer
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly HttpListener listener = new();
     private readonly ManualLogSource log;
-    private readonly GameCommandDispatcher commands;
+    private readonly PomodoroController pomodoro;
     private readonly RuntimeProbe probe;
     private readonly CancellationTokenSource shutdown = new();
     private readonly string prefix;
 
-    internal LocalApiServer(RuntimeProbe probe, GameCommandDispatcher commands, ManualLogSource log, string listenUrl)
+    internal LocalApiServer(RuntimeProbe probe, PomodoroController pomodoro, ManualLogSource log, string listenUrl)
     {
         this.probe = probe;
-        this.commands = commands;
+        this.pomodoro = pomodoro;
         this.log = log;
         prefix = NormalizePrefix(listenUrl);
         listener.Prefixes.Add(prefix);
@@ -112,7 +112,7 @@ internal sealed class LocalApiServer
 
         if (request.HttpMethod == "GET" && request.Url?.AbsolutePath == "/v1/timer-status")
         {
-            return new ApiHttpResponse(200, ApiResponse<TimerStatusSnapshot>.Success(await commands.CaptureTimerStatusAsync()));
+            return new ApiHttpResponse(200, ApiResponse<PomodoroStatusSnapshot>.Success(await pomodoro.CaptureStatusAsync()));
         }
 
         if (request.HttpMethod == "POST" && request.Url?.AbsolutePath == "/v1/commands")
@@ -143,9 +143,9 @@ internal sealed class LocalApiServer
             return new ApiHttpResponse(400, ApiResponse<object>.Failure("Missing command id. Use JSON like { \"id\": \"pomodoro.ui-start\" }."));
         }
 
-        var result = await commands.ExecuteAsync(commandId, commandRequest == null ? 0 : commandRequest.Minutes);
+        var result = await pomodoro.ExecuteAsync(commandId, commandRequest == null ? 0 : commandRequest.Minutes);
         return result.Success
-            ? new ApiHttpResponse(200, ApiResponse<CommandExecutionResult>.Success(result))
-            : new ApiHttpResponse(409, ApiResponse<CommandExecutionResult>.Failure(result.Message));
+            ? new ApiHttpResponse(200, ApiResponse<PomodoroCommandResult>.Success(result))
+            : new ApiHttpResponse(409, ApiResponse<PomodoroCommandResult>.Failure(result.Message));
     }
 }
