@@ -1,4 +1,5 @@
 using UnityEngine;
+using MemoryOfMemorieCodexBridge.Api;
 using MemoryOfMemorieCodexBridge.Game.Music;
 using MemoryOfMemorieCodexBridge.Game.Ui;
 
@@ -9,16 +10,18 @@ public sealed class UnityMainThreadHost : MonoBehaviour
     private static UnityMainThreadQueue queue;
     private static GameUiVisibilityController gameUi;
     private static MusicHotkeyController musicHotkey;
+    private static HttpApiHotkeyController httpApiHotkey;
 
     public UnityMainThreadHost(IntPtr pointer) : base(pointer)
     {
     }
 
-    internal static void Configure(UnityMainThreadQueue mainThreadQueue, GameUiVisibilityController gameUiController, MusicHotkeyController musicHotkeyController)
+    internal static void Configure(UnityMainThreadQueue mainThreadQueue, GameUiVisibilityController gameUiController, MusicHotkeyController musicHotkeyController, HttpApiHotkeyController httpApiHotkeyController)
     {
         queue = mainThreadQueue;
         gameUi = gameUiController;
         musicHotkey = musicHotkeyController;
+        httpApiHotkey = httpApiHotkeyController;
     }
 
     private void Update()
@@ -27,5 +30,6 @@ public sealed class UnityMainThreadHost : MonoBehaviour
         queue?.Drain();
         gameUi?.DrainOnUnityThread();
         musicHotkey?.UpdateOnUnityThread();
+        httpApiHotkey?.UpdateOnUnityThread();
     }
 }

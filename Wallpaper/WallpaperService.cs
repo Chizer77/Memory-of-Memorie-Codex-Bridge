@@ -32,8 +32,7 @@ internal sealed class WallpaperService
             return;
         }
 
-        var exitHotkey = Hotkey.Parse(configuration.ExitWallpaperHotkey);
-        var returnHotkey = Hotkey.Parse(configuration.ReturnWallpaperHotkey);
+        var toggleHotkey = Hotkey.Parse(configuration.ToggleWallpaperHotkey);
         var wallpaper = new WallpaperController(
             target,
             configuration.CompensateRemovedWindowFrame,
@@ -43,8 +42,7 @@ internal sealed class WallpaperService
         var isWallpaper = false;
         DateTime? detachedAt = null;
         var lastRecoveryAttempt = DateTime.MinValue;
-        var exitWasPressed = false;
-        var returnWasPressed = false;
+        var toggleWasPressed = false;
 
         try
         {
@@ -56,22 +54,21 @@ internal sealed class WallpaperService
                     return;
                 }
                 isWallpaper = true;
-                uiVisibilityController.SetWallpaperMode(true);
+                uiVisibilityController.BeginInitialWallpaperMode();
             }
 
             while (NativeMethods.IsWindow(target))
             {
-                var exitIsPressed = exitHotkey.IsPressed();
-                var returnIsPressed = returnHotkey.IsPressed();
+                var toggleIsPressed = toggleHotkey.IsPressed();
 
-                if (exitIsPressed && !exitWasPressed && isWallpaper)
+                if (toggleIsPressed && !toggleWasPressed && isWallpaper)
                 {
                     wallpaper.Detach(true);
                     isWallpaper = false;
                     uiVisibilityController.SetWallpaperMode(false);
                     detachedAt = DateTime.UtcNow;
                 }
-                else if (returnIsPressed && !returnWasPressed && !isWallpaper && wallpaper.TryAttach(out var error))
+                else if (toggleIsPressed && !toggleWasPressed && !isWallpaper && wallpaper.TryAttach(out var error))
                 {
                     isWallpaper = true;
                     uiVisibilityController.SetWallpaperMode(true);
@@ -102,8 +99,7 @@ internal sealed class WallpaperService
                     }
                 }
 
-                exitWasPressed = exitIsPressed;
-                returnWasPressed = returnIsPressed;
+                toggleWasPressed = toggleIsPressed;
                 await Task.Delay(50);
             }
         }

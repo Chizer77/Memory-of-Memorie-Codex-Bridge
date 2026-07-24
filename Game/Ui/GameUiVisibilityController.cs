@@ -15,6 +15,7 @@ internal sealed class GameUiVisibilityController
     private bool hasAppliedVisibility;
     private bool appliedVisible;
     private DateTime? hideAfter;
+    private DateTime? initialWallpaperHideAfter;
     private DateTime nextApplyAttempt = DateTime.MinValue;
 
     internal GameUiVisibilityController(bool enabled, int timerEventUiSeconds, ManualLogSource log)
@@ -32,6 +33,21 @@ internal sealed class GameUiVisibilityController
             wallpaperMode = active;
             desiredVisible = !active;
             hideAfter = null;
+
+            initialWallpaperHideAfter = null;
+        }
+    }
+
+    internal void BeginInitialWallpaperMode()
+    {
+        if (!enabled) return;
+        lock (stateGate)
+        {
+            wallpaperMode = true;
+            desiredVisible = false;
+            hideAfter = null;
+
+            initialWallpaperHideAfter = DateTime.UtcNow.AddSeconds(15);
         }
     }
 
@@ -43,6 +59,7 @@ internal sealed class GameUiVisibilityController
             if (!wallpaperMode) return;
             desiredVisible = true;
             hideAfter = DateTime.UtcNow.Add(timerEventDuration);
+            initialWallpaperHideAfter = null;
         }
     }
 
@@ -51,8 +68,16 @@ internal sealed class GameUiVisibilityController
         if (!enabled) return;
 
         bool visible;
+        var initialHideIsDue = false;
         lock (stateGate)
         {
+            if (initialWallpaperHideAfter.HasValue)
+            {
+                if (DateTime.UtcNow < initialWallpaperHideAfter.Value) return;
+
+                initialWallpaperHideAfter = null;
+                initialHideIsDue = true;
+            }
             if (wallpaperMode && hideAfter.HasValue && DateTime.UtcNow >= hideAfter.Value)
             {
                 desiredVisible = false;
@@ -61,7 +86,8 @@ internal sealed class GameUiVisibilityController
             visible = desiredVisible;
         }
 
-        if (hasAppliedVisibility && appliedVisible == visible) return;
+        var requiresApply = initialHideIsDue || !hasAppliedVisibility || appliedVisible != visible;
+        if (!requiresApply) return;
         if (DateTime.UtcNow < nextApplyAttempt) return;
 
         nextApplyAttempt = DateTime.UtcNow.AddSeconds(1);
@@ -87,21 +113,26 @@ internal sealed class GameUiVisibilityController
 
     private static bool TrySetVisibility(bool visible)
     {
-        var type = Il2CppReflection.FindType(MainSceneViewTypeName);
-        if (type is null) return false;
-
-        var target = Il2CppReflection.FindUnityObject(type);
-        if (target is null) return false;
-
-        var typedTarget = Il2CppReflection.WrapAsTargetType(target, type);
-        if (typedTarget is null) return false;
+        if (!TryFindMainSceneView(out var type, out var target)) return false;
 
         var methodName = visible ? "UIInTask" : "UIOutTask";
         var method = type.GetMethod(methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, null, new[] { typeof(bool) }, null);
         if (method is null) return false;
 
-        // 保留游戏自己的 UI 过渡动画，避免壁纸画面突变。
-        method.Invoke(typedTarget, new object[] { false });
+        method.Invoke(target, new object[] { false });
         return true;
+    }
+
+    private static bool TryFindMainSceneView(out Type type, out object typedTarget)
+    {
+        type = Il2CppReflection.FindType(MainSceneViewTypeName);
+        typedTarget = null;
+        if (type is null) return false;
+
+        var target = Il2CppReflection.FindUnityObject(type);
+        if (target is null) return false;
+
+        typedTarget = Il2CppReflection.WrapAsTargetType(target, type);
+        return typedTarget is not null;
     }
 }

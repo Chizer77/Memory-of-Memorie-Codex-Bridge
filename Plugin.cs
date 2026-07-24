@@ -8,7 +8,6 @@ using MemoryOfMemorieCodexBridge.Game;
 using MemoryOfMemorieCodexBridge.Game.Pomodoro;
 using MemoryOfMemorieCodexBridge.Game.Ui;
 using MemoryOfMemorieCodexBridge.Game.Music;
-using MemoryOfMemorieCodexBridge.Windows;
 using MemoryOfMemorieCodexBridge.Probing;
 using MemoryOfMemorieCodexBridge.Wallpaper;
 
@@ -18,6 +17,7 @@ namespace MemoryOfMemorieCodexBridge;
 public sealed class Plugin : BasePlugin
 {
     private LocalApiServer apiServer;
+    private HttpApiHotkeyController httpApiHotkey;
     private PomodoroController pomodoro;
     private UnityMainThreadQueue unityMainThreadQueue;
     private MusicHotkeyController musicHotkey;
@@ -27,10 +27,6 @@ public sealed class Plugin : BasePlugin
     public override void Load()
     {
         var configuration = BridgeConfigurationStore.LoadOrCreate(Log);
-        if (configuration.Diagnostics.HideConsoleWindow)
-        {
-            ConsoleWindow.HideIfPresent();
-        }
         var probe = new RuntimeProbe();
         uiVisibilityController = new GameUiVisibilityController(
             configuration.Wallpaper.HideGameUi,
@@ -42,19 +38,21 @@ public sealed class Plugin : BasePlugin
         {
             musicHotkey = new MusicHotkeyController(configuration.Music.ToggleHotkey, new MusicController(Log), uiVisibilityController);
         }
-        ClassInjector.RegisterTypeInIl2Cpp<UnityMainThreadHost>();
-        UnityMainThreadHost.Configure(unityMainThreadQueue, uiVisibilityController, musicHotkey);
-        AddComponent<UnityMainThreadHost>();
+        apiServer = new LocalApiServer(probe, pomodoro, Log, configuration.Http.ListenUrl);
+        httpApiHotkey = new HttpApiHotkeyController(configuration.Http.ToggleHotkey, apiServer);
 
         if (configuration.Http.Enabled)
         {
-            apiServer = new LocalApiServer(probe, pomodoro, Log, configuration.Http.ListenUrl);
             apiServer.Start();
         }
         else
         {
-            Log.LogInfo("Local HTTP API is disabled by config.json.");
+            Log.LogInfo("Local HTTP API will remain stopped until its configured hotkey is pressed.");
         }
+
+        ClassInjector.RegisterTypeInIl2Cpp<UnityMainThreadHost>();
+        UnityMainThreadHost.Configure(unityMainThreadQueue, uiVisibilityController, musicHotkey, httpApiHotkey);
+        AddComponent<UnityMainThreadHost>();
 
         if (configuration.Wallpaper.Enabled)
         {

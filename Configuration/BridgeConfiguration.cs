@@ -17,6 +17,7 @@ internal sealed class HttpConfiguration
 {
     public bool Enabled { get; set; } = true;
     public string ListenUrl { get; set; } = "http://127.0.0.1:29461/";
+    public string ToggleHotkey { get; set; } = "Ctrl+F10";
 }
 
 internal sealed class WallpaperConfiguration
@@ -27,9 +28,8 @@ internal sealed class WallpaperConfiguration
     public bool HideGameUi { get; set; } = true;
     public int TimerEventUiSeconds { get; set; } = 3;
     public bool AutoSetWallpaper { get; set; } = true;
-    public string ExitWallpaperHotkey { get; set; } = "Ctrl+F10";
+    public string ToggleWallpaperHotkey { get; set; } = "Ctrl+F12";
     public int AutoReturnSeconds { get; set; }
-    public string ReturnWallpaperHotkey { get; set; } = "Ctrl+F12";
 }
 
 internal sealed class MusicConfiguration
@@ -79,17 +79,28 @@ internal static class BridgeConfigurationStore
 
     private static void Validate(BridgeConfiguration configuration)
     {
-        if (configuration.Http.Enabled && (!Uri.TryCreate(configuration.Http.ListenUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttp || uri.AbsolutePath != "/" || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment)))
+        if (!Uri.TryCreate(configuration.Http.ListenUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttp || uri.AbsolutePath != "/" || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
         {
             throw new InvalidOperationException("Http.ListenUrl must be an HTTP root URL without a path, query, or fragment.");
         }
 
-        if (configuration.Music.Enabled)
+        var hotkeys = new List<(string Name, Hotkey Value)>
         {
-            var musicHotkey = Hotkey.Parse(configuration.Music.ToggleHotkey);
-            if (configuration.Wallpaper.Enabled && (musicHotkey.Equals(Hotkey.Parse(configuration.Wallpaper.ExitWallpaperHotkey)) || musicHotkey.Equals(Hotkey.Parse(configuration.Wallpaper.ReturnWallpaperHotkey))))
+            (nameof(HttpConfiguration.ToggleHotkey), Hotkey.Parse(configuration.Http.ToggleHotkey))
+        };
+
+        if (configuration.Music.Enabled) hotkeys.Add((nameof(MusicConfiguration.ToggleHotkey), Hotkey.Parse(configuration.Music.ToggleHotkey)));
+
+        if (configuration.Wallpaper.Enabled)
+        {
+            hotkeys.Add((nameof(WallpaperConfiguration.ToggleWallpaperHotkey), Hotkey.Parse(configuration.Wallpaper.ToggleWallpaperHotkey)));
+        }
+
+        for (var index = 0; index < hotkeys.Count; index++)
+        {
+            if (hotkeys.Take(index).Any(existing => existing.Value.Equals(hotkeys[index].Value)))
             {
-                throw new InvalidOperationException("Music.ToggleHotkey must not match a wallpaper hotkey.");
+                throw new InvalidOperationException($"{hotkeys[index].Name} must not match another configured hotkey.");
             }
         }
 
@@ -110,11 +121,5 @@ internal static class BridgeConfigurationStore
             throw new InvalidOperationException("Wallpaper.AutoReturnSeconds must be between 0 and 3600.");
         }
 
-        var exitHotkey = Hotkey.Parse(configuration.Wallpaper.ExitWallpaperHotkey);
-        var returnHotkey = Hotkey.Parse(configuration.Wallpaper.ReturnWallpaperHotkey);
-        if (exitHotkey.Equals(returnHotkey))
-        {
-            throw new InvalidOperationException("Wallpaper hotkeys must not be identical.");
-        }
     }
 }

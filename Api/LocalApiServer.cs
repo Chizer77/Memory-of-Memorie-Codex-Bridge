@@ -14,8 +14,10 @@ internal sealed class LocalApiServer
     private readonly ManualLogSource log;
     private readonly PomodoroController pomodoro;
     private readonly RuntimeProbe probe;
-    private readonly CancellationTokenSource shutdown = new();
+    private readonly object lifecycleLock = new();
     private readonly string prefix;
+    private CancellationTokenSource listeningCancellation;
+    private bool isListening;
 
     internal LocalApiServer(RuntimeProbe probe, PomodoroController pomodoro, ManualLogSource log, string listenUrl)
     {
@@ -28,9 +30,44 @@ internal sealed class LocalApiServer
 
     internal void Start()
     {
-        listener.Start();
-        _ = Task.Run(ListenAsync);
+        CancellationToken cancellationToken;
+        lock (lifecycleLock)
+        {
+            if (isListening) return;
+            listener.Start();
+            isListening = true;
+            listeningCancellation = new CancellationTokenSource();
+            cancellationToken = listeningCancellation.Token;
+        }
+
+        _ = ListenAsync(cancellationToken);
         log.LogInfo($"Local API listening on {prefix}");
+    }
+
+    internal void Stop()
+    {
+        CancellationTokenSource cancellation;
+        lock (lifecycleLock)
+        {
+            if (!isListening) return;
+            isListening = false;
+            cancellation = listeningCancellation;
+            listeningCancellation = null;
+            cancellation.Cancel();
+            listener.Stop();
+        }
+
+        // 停止监听会解除 GetContextAsync 的等待，使旧监听循环立即退出。
+        cancellation.Dispose();
+        log.LogInfo("Local API stopped.");
+    }
+
+    internal bool IsListening
+    {
+        get
+        {
+            lock (lifecycleLock) return isListening;
+        }
     }
 
     private static string NormalizePrefix(string listenUrl)
@@ -49,16 +86,17 @@ internal sealed class LocalApiServer
         return uri.GetLeftPart(UriPartial.Authority) + "/";
     }
 
-    private async Task ListenAsync()
+    private async Task ListenAsync(CancellationToken cancellationToken)
     {
-        while (!shutdown.IsCancellationRequested)
+        while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
                 var context = await listener.GetContextAsync();
+                if (cancellationToken.IsCancellationRequested) return;
                 HandleWithoutAwait(context);
             }
-            catch (HttpListenerException) when (shutdown.IsCancellationRequested)
+            catch (HttpListenerException) when (cancellationToken.IsCancellationRequested)
             {
                 return;
             }
