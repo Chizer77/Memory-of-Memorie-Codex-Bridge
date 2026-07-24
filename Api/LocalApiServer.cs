@@ -9,27 +9,44 @@ namespace MemoryOfMemorieCodexBridge.Api;
 
 internal sealed class LocalApiServer
 {
-    private const string Prefix = "http://127.0.0.1:29461/";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly HttpListener listener = new();
     private readonly ManualLogSource log;
     private readonly GameCommandDispatcher commands;
     private readonly RuntimeProbe probe;
     private readonly CancellationTokenSource shutdown = new();
+    private readonly string prefix;
 
-    internal LocalApiServer(RuntimeProbe probe, GameCommandDispatcher commands, ManualLogSource log)
+    internal LocalApiServer(RuntimeProbe probe, GameCommandDispatcher commands, ManualLogSource log, string listenUrl)
     {
         this.probe = probe;
         this.commands = commands;
         this.log = log;
-        listener.Prefixes.Add(Prefix);
+        prefix = NormalizePrefix(listenUrl);
+        listener.Prefixes.Add(prefix);
     }
 
     internal void Start()
     {
         listener.Start();
         _ = Task.Run(ListenAsync);
-        log.LogInfo($"Local API listening on {Prefix}");
+        log.LogInfo($"Local API listening on {prefix}");
+    }
+
+    private static string NormalizePrefix(string listenUrl)
+    {
+        if (!Uri.TryCreate(listenUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttp)
+        {
+            throw new ArgumentException("ListenUrl must be an absolute HTTP URL.", nameof(listenUrl));
+        }
+
+        if (!string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment) || uri.AbsolutePath != "/")
+        {
+            throw new ArgumentException("ListenUrl must not contain a path, query, or fragment.", nameof(listenUrl));
+        }
+
+        // HttpListener 使用根前缀，避免配置路径与固定 API 路由发生错配。
+        return uri.GetLeftPart(UriPartial.Authority) + "/";
     }
 
     private async Task ListenAsync()
