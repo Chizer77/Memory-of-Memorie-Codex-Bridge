@@ -1,0 +1,10 @@
+.trash/
+src/
+lib/
+outputs/
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+docs/
