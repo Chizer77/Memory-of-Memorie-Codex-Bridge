@@ -1,0 +1,21 @@
+{
+  "Http": {
+    "Enabled": true,
+    "ListenUrl": "http://127.0.0.1:29461/"
+  },
+  "Music": {
+    "Enabled": true,
+    "ToggleHotkey": "Ctrl+F11"
+  },
+  "Wallpaper": {
+    "Enabled": true,
+    "CompensateRemovedWindowFrame": true,
+    "ExtraOverscanPixels": 0,
+    "HideGameUi": true,
+    "TimerEventUiSeconds": 3,
+    "AutoSetWallpaper": true,
+    "ExitWallpaperHotkey": "Ctrl+F10",
+    "AutoReturnSeconds": 0,
+    "ReturnWallpaperHotkey": "Ctrl+F12"
+  }
+}
